@@ -178,15 +178,12 @@ The desired size in bytes.
 The size of the existing journal (including checkpointed but unpurged messages
 in the current journal file), in bytes.
 
-=head rewind
+=head3 rewind
 
   $r->rewind;
 
 Rewind the jlog to the previous transaction id (when in an uncommitted state).  
 This is useful for implementing a 'peek' style action.
-
-=back
-
 
 =head1 SEE ALSO
 
