@@ -75,14 +75,15 @@ jlog_file *jlog_file_open(const char *path, int flags, int mode, int multi_proce
     jlog_file *f;
     void *vptr;
   } pun;
-  int fd, realflags = O_RDWR;
+  int fd, realflags = O_RDWR, rv;
 
   if (flags & O_CREAT) realflags |= O_CREAT;
   if (flags & O_EXCL) realflags |= O_EXCL;
 
   if (pthread_mutex_lock(&jlog_files_lock) != 0) return NULL;
 
-  if (stat(path, &sb) == 0) {
+  while ((rv = stat(path, &sb)) == -1 && errno == EINTR);
+  if (rv == 0) {
     if (!S_ISREG(sb.st_mode)) goto out;
     memset(&id, 0, sizeof(id));
     id.st_dev = sb.st_dev;
@@ -93,13 +94,17 @@ jlog_file *jlog_file_open(const char *path, int flags, int mode, int multi_proce
       if (!(flags & O_EXCL)) {
         f = pun.f;
         f->refcnt++;
+      } else {
+        errno = EEXIST;
       }
       goto out;
     }
   }
 
-  if ((fd = open(path, realflags, mode)) == -1) goto out;
-  if (fstat(fd, &sb) != 0) {
+  while ((fd = open(path, realflags, mode)) == -1 && errno == EINTR);
+  if (fd == -1) goto out;
+  while ((rv = fstat(fd, &sb)) == -1 && errno == EINTR);
+  if (rv != 0) {
     while (close(fd) == -1 && errno == EINTR) ;
     goto out;
   }
@@ -213,8 +218,8 @@ int jlog_file_pwrite(jlog_file *f, const void *buf, size_t nbyte, off_t offset)
   return 1;
 }
 
-int jlog_file_pwritev(jlog_file *f, const struct iovec *vecs, int iov_count, off_t offset) 
-{
+int jlog_file_pwritev_verify_return_value(jlog_file *f, const struct iovec *vecs, int iov_count, off_t offset,
+                                          size_t expected_length) {
   ssize_t rv = 0;
   while (1) {
 #ifdef HAVE_PWRITEV
@@ -225,9 +230,23 @@ int jlog_file_pwritev(jlog_file *f, const struct iovec *vecs, int iov_count, off
 #endif
     if (rv == -1 && errno == EINTR) continue;
     if (rv <= 0) return 0;
+    if (rv > 0 && rv != expected_length) continue;
     break;
   }
   return 1;
+}
+
+int jlog_file_pwritev(jlog_file *f, const struct iovec *vecs, int iov_count, off_t offset)
+{
+  int i;
+  size_t expected_length = 0;
+  for (i=0; i < iov_count; i++) {
+    expected_length += vecs[i].iov_len;
+  }
+  if (expected_length) {
+    return jlog_file_pwritev_verify_return_value(f, vecs, iov_count, offset, expected_length);
+  }
+  return 0;
 }
 
 int jlog_file_sync(jlog_file *f)

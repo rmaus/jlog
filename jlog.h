@@ -136,11 +136,15 @@ typedef enum {
   JLOG_COMPRESSION_LZ4 = 0x01
 } jlog_compression_provider_choice;
 
-
+typedef enum {
+  JLOG_READ_METHOD_MMAP = 0,
+  JLOG_READ_METHOD_PREAD
+} jlog_read_method_type;
 
 typedef void (*jlog_error_func) (void *ctx, const char *msg, ...);
 
 JLOG_API(jlog_ctx *) jlog_new(const char *path);
+JLOG_API(const char *) jlog_err_string(int);
 JLOG_API(void)      jlog_set_error_func(jlog_ctx *ctx, jlog_error_func Func, void *ptr); 
 JLOG_API(size_t)    jlog_raw_size(jlog_ctx *ctx);
 JLOG_API(int)       jlog_ctx_init(jlog_ctx *ctx);
@@ -159,6 +163,7 @@ JLOG_API(int)       jlog_ctx_alter_mode(jlog_ctx *ctx, int mode);
 JLOG_API(int)       jlog_ctx_alter_journal_size(jlog_ctx *ctx, size_t size);
 JLOG_API(int)       jlog_ctx_repair(jlog_ctx *ctx, int aggressive);
 JLOG_API(int)       jlog_ctx_alter_safety(jlog_ctx *ctx, jlog_safety safety);
+JLOG_API(int)       jlog_ctx_alter_read_method(jlog_ctx *ctx, jlog_read_method_type method);
 
 /**
  * Control whether this jlog process should use multi-process safe file locks when performing 
@@ -238,6 +243,7 @@ JLOG_API(int)       jlog_ctx_write_message(jlog_ctx *ctx, jlog_message *msg, str
 JLOG_API(int)       jlog_ctx_read_interval(jlog_ctx *ctx,
                                            jlog_id *first_mess, jlog_id *last_mess);
 JLOG_API(int)       jlog_ctx_read_message(jlog_ctx *ctx, const jlog_id *, jlog_message *);
+JLOG_API(int)       jlog_ctx_bulk_read_messages(jlog_ctx *ctx, const jlog_id *, const int, jlog_message *);
 JLOG_API(int)       jlog_ctx_read_checkpoint(jlog_ctx *ctx, const jlog_id *checkpoint);
 JLOG_API(int)       jlog_snprint_logid(char *buff, int n, const jlog_id *checkpoint);
 
@@ -245,6 +251,7 @@ JLOG_API(int)       jlog_pending_readers(jlog_ctx *ctx, u_int32_t log, u_int32_t
 JLOG_API(int)       __jlog_pending_readers(jlog_ctx *ctx, u_int32_t log);
 JLOG_API(int)       jlog_ctx_first_log_id(jlog_ctx *ctx, jlog_id *id);
 JLOG_API(int)       jlog_ctx_last_log_id(jlog_ctx *ctx, jlog_id *id);
+JLOG_API(int)       jlog_ctx_last_storage_log(jlog_ctx *ctx, uint32_t *logid);
 JLOG_API(int)       jlog_ctx_advance_id(jlog_ctx *ctx, jlog_id *cur, 
                                         jlog_id *start, jlog_id *finish);
 JLOG_API(int)       jlog_clean(const char *path);
